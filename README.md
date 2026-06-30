@@ -1,91 +1,115 @@
 # mycobactopia-org/mtbc-resistotyper-nf
 
-
-[![GitHub Actions CI Status](https://github.com/mycobactopia-org/mtbc-resistotyper-nf/actions/workflows/nf-test.yml/badge.svg)](https://github.com/mycobactopia-org/mtbc-resistotyper-nf/actions/workflows/nf-test.yml)
-[![GitHub Actions Linting Status](https://github.com/mycobactopia-org/mtbc-resistotyper-nf/actions/workflows/linting.yml/badge.svg)](https://github.com/mycobactopia-org/mtbc-resistotyper-nf/actions/workflows/linting.yml)[![Cite with Zenodo](http://img.shields.io/badge/DOI-10.5281/zenodo.XXXXXXX-1073c8?labelColor=000000)](https://doi.org/10.5281/zenodo.XXXXXXX)
+[![GitHub Actions Linting Status](https://github.com/mycobactopia-org/mtbc-resistotyper-nf/actions/workflows/linting.yml/badge.svg)](https://github.com/mycobactopia-org/mtbc-resistotyper-nf/actions/workflows/linting.yml)
 [![nf-test](https://img.shields.io/badge/unit_tests-nf--test-337ab7.svg)](https://www.nf-test.com)
-
 [![Nextflow](https://img.shields.io/badge/version-%E2%89%A525.10.4-green?style=flat&logo=nextflow&logoColor=white&color=%230DC09D&link=https%3A%2F%2Fnextflow.io)](https://www.nextflow.io/)
 [![nf-core template version](https://img.shields.io/badge/nf--core_template-4.0.2-green?style=flat&logo=nfcore&logoColor=white&color=%2324B064&link=https%3A%2F%2Fnf-co.re)](https://github.com/nf-core/tools/releases/tag/4.0.2)
-[![run with conda](http://img.shields.io/badge/run%20with-conda-3EB049?labelColor=000000&logo=anaconda)](https://docs.conda.io/en/latest/)
 [![run with docker](https://img.shields.io/badge/run%20with-docker-0db7ed?labelColor=000000&logo=docker)](https://www.docker.com/)
 [![run with singularity](https://img.shields.io/badge/run%20with-singularity-1d355c.svg?labelColor=000000)](https://sylabs.io/docs/)
-[![Launch on Seqera Platform](https://img.shields.io/badge/Launch%20%F0%9F%9A%80-Seqera%20Platform-%234256e7)](https://cloud.seqera.io/launch?pipeline=https://github.com/mycobactopia-org/mtbc-resistotyper-nf)
 
 ## Introduction
 
-**mycobactopia-org/mtbc-resistotyper-nf** is a bioinformatics pipeline that ...
+**mycobactopia-org/mtbc-resistotyper-nf** is one block of the [`mtbc-*-nf` building-block family](https://github.com/mycobactopia-org) — a generalisable, multi-backend Nextflow pipeline for one analytical step of MTBC genomics. This block runs **MTBC resistance prediction**: given per-sample variant calls, it runs one or more published resistance predictors (TB-Profiler in Phase 1; Mykrobe / SAM-TB / GenTB later) and normalises their outputs into a canonical per-sample drug-resistance table. A slot is reserved for [`mtb-resistotyper-ml`](https://github.com/abhi18av-phd-projects/pub-mtb-resistotyper-ml) as the future ML default backend.
 
-<!-- TODO nf-core:
-   Complete this sentence with a 2-3 sentence summary of what types of data the pipeline ingests, a brief overview of the
-   major pipeline sections and the types of output it produces. You're giving an overview to someone new
-   to nf-core here, in 15-20 seconds. For an example, see https://github.com/nf-core/rnaseq/blob/master/README.md#introduction
--->
+The pipeline exposes an importable subworkflow `MTBC_RESISTOTYPER` with a stable interface contract (see [`docs/CONTRACT.md`](docs/CONTRACT.md)) — consumed by tbanalyzer, MAGMA-v2, and any downstream pipeline that needs drug-resistance calls without re-implementing predictor invocation.
 
-<!-- TODO nf-core: Include a figure that guides the user through the major workflow steps. Many nf-core
-     workflows use the "tube map" design for that. See https://nf-co.re/docs/community/brand/workflow-schematics#examples for examples.   -->
-<!-- TODO nf-core: Fill in short bullet-pointed list of the default steps in the pipeline -->
+### First upstream integration: XBS
+
+The Phase-1 release accepts variant calls from **[mycobactopia-org/xbs-variant-calling](https://github.com/mycobactopia-org/xbs-variant-calling)** — the canonical Heupink 2021 GATK-VQSR caller — as the first documented upstream chain. Two consumption patterns:
+
+| Pattern | When | How |
+|---|---|---|
+| **Standalone** (decoupled batch) | Variant calls already exist on disk | `--input samplesheet.csv` with `sample,vcf,tbi` columns |
+| **Chained** (consumer pipeline) | End-to-end Nextflow run | `include { XBS_VARIANT_CALLING }` + `include { MTBC_RESISTOTYPER }` in your consumer pipeline; pass XBS's `snp_filtered` + `indel_filtered` emits through a small adapter |
+
+XBS is pinned by commit; future releases will swap to a `--upstream xbs|magma|mtbc-varcaller-nf` flag once additional upstream callers are wired in. The contract (`docs/CONTRACT.md`) is the same regardless of upstream.
+
+### Pipeline outputs
+
+- **Per-sample DR table** (`*.dr_table.tsv`) — canonical schema: `sample, drug, prediction (R|S|U), confidence, mutations, catalogue, backend, backend_version`. One row per drug per sample.
+- **Per-sample DR JSON** (`*.dr.json`) — backend-native output for downstream tooling that needs the raw predictor structure
+- **(Phase 2)** Cohort summary — resistance prevalence per drug across the cohort
+
+### Pipeline stages (Phase 1)
+
+1. **Resolve upstream input** — samplesheet (`sample,vcf,tbi`) or chained subworkflow output
+2. **Run resistance backend** — TB-Profiler against the WHO catalogue v2 (Phase 1; multi-backend voting from Phase 2)
+3. **Normalise to canonical table** — convert backend-native output to the canonical DR table schema
+4. **Stamp provenance** — every DR record carries backend name, version, container digest, catalogue version
+
+### Position in the family
+
+| Block | Step | Status |
+|---|---|---|
+| `mtbc-qc-nf` | read QC / trim | future |
+| `mtbc-aligner-nf` | read alignment | future |
+| `mtbc-varcaller-nf` | variant calling (small + SV + minority) | Phase-1 in progress (Task 2 of current handoff) |
+| **`mtbc-resistotyper-nf`** | **resistance prediction** | **Phase-1 scaffold (this repo)** |
+| `mtbc-lineage-nf` | lineage / typing | future |
+| `mtbc-phylo-nf` | phylogenetics | future |
+| `mtbc-cluster-nf` | SNP-distance clustering | future |
+| `mtbc-transmission-nf` | transmission inference | future |
+
+The family vision: `abc-universe/brainstorms/mtbc-building-blocks/2026-06-30-mtbc-nf-building-block-family.md`.
 
 ## Usage
 
 > [!NOTE]
-> If you are new to Nextflow and nf-core, please refer to [this page](https://nf-co.re/docs/get_started/environment_setup/overview) on how to set-up Nextflow. Make sure to [test your setup](https://nf-co.re/docs/get_started/run-your-first-pipeline) with `-profile test` before running the workflow on actual data.
+> If you are new to Nextflow, refer to [the nf-core docs](https://nf-co.re/docs/get_started/environment_setup/overview).
 
-<!-- TODO nf-core: Describe the minimum required steps to execute the pipeline, e.g. how to prepare samplesheets.
-     Explain what rows and columns represent. For instance (please edit as appropriate):
-
-First, prepare a samplesheet with your input data that looks as follows:
-
-`samplesheet.csv`:
+Prepare a samplesheet with per-sample VCFs (Pattern A — decoupled):
 
 ```csv
-sample,fastq_1,fastq_2
-CONTROL_REP1,AEG588A1_S1_L002_R1_001.fastq.gz,AEG588A1_S1_L002_R2_001.fastq.gz
+sample,vcf,tbi
+SAMPLE_A,/path/to/SAMPLE_A.vcf.gz,/path/to/SAMPLE_A.vcf.gz.tbi
+SAMPLE_B,/path/to/SAMPLE_B.vcf.gz,/path/to/SAMPLE_B.vcf.gz.tbi
 ```
 
-Each row represents a fastq file (single-end) or a pair of fastq files (paired end).
-
--->
-
-Now, you can run the pipeline using:
-
-<!-- TODO nf-core: update the following command to include all required parameters for a minimal example -->
+Run:
 
 ```bash
 nextflow run mycobactopia-org/mtbc-resistotyper-nf \
-   -profile <docker/singularity/.../institute> \
-   --input samplesheet.csv \
-   --outdir <OUTDIR>
+    -profile <docker|singularity|conda>,test \
+    --input samplesheet.csv \
+    --outdir results/
 ```
 
-> [!WARNING]
-> Please provide pipeline parameters via the CLI or Nextflow `-params-file` option. Custom config files including those provided by the `-c` Nextflow option can be used to provide any configuration _**except for parameters**_; see [docs](https://nf-co.re/docs/running/run-pipelines#using-parameter-files).
+The `test` profile bundles a fixed-VCF / known-phenotype EXIT-RIF sample for the Layer-1 standalone test.
+
+## Validation
+
+Three integration tiers — see [`docs/VALIDATION.md`](docs/VALIDATION.md) for the full plan:
+
+| Tier | Tests | Cost |
+|---|---|---|
+| **T1** | resistotyper standalone on fixed VCF | minutes (laptop) |
+| **T2** | XBS → resistotyper end-to-end | hours (abc-cluster) |
+| **T3** | MAGMA (which wraps XBS) → resistotyper end-to-end | hours (abc-cluster) |
+
+T2 and T3 are the **"two test points"** that catch (a) XBS-output / resistotyper-input drift and (b) MAGMA-side wrapping that changes downstream resistance calls even when XBS itself is unchanged.
 
 ## Credits
 
-mycobactopia-org/mtbc-resistotyper-nf was originally written by Abhinav Sharma.
+mycobactopia-org/mtbc-resistotyper-nf was developed by Abhinav Sharma as part of the `mtbc-*-nf` building-block family.
 
-We thank the following people for their extensive assistance in the development of this pipeline:
+Resistance predictors wrapped:
+- **TB-Profiler** (Phelan lab) — Phase 1 default backend; the de-facto standard
+- **Mykrobe**, **SAM-TB**, **GenTB** — Phase 2 backends
 
-<!-- TODO nf-core: If applicable, make list of people who have also contributed -->
+ML default backend slot reserved for [`mtb-resistotyper-ml`](https://github.com/abhi18av-phd-projects/pub-mtb-resistotyper-ml) (Sharma et al., in preparation — glass-box epistasis in MTB drug resistance on CRyPTIC v3.4.0).
 
 ## Contributions and Support
 
-If you would like to contribute to this pipeline, please see the [contributing guidelines](docs/CONTRIBUTING.md).
+If you would like to contribute, please see [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md).
 
 ## Citations
 
-<!-- TODO nf-core: Add citation for pipeline after first release. Uncomment lines below and update Zenodo doi and badge at the top of this file. -->
-<!-- If you use mycobactopia-org/mtbc-resistotyper-nf for your analysis, please cite it using the following doi: [10.5281/zenodo.XXXXXX](https://doi.org/10.5281/zenodo.XXXXXX) -->
+This pipeline is part of the `mtbc-*-nf` family. Cite the building-block family architecture (Sharma A et al., in preparation) and the predictor backends used — see [`CITATIONS.md`](CITATIONS.md) for the full list.
 
-<!-- TODO nf-core: Add bibliography of tools and data used in your pipeline -->
-
-An extensive list of references for the tools used by the pipeline can be found in the [`CITATIONS.md`](CITATIONS.md) file.
-
-This pipeline uses code and infrastructure developed and maintained by the [nf-core](https://nf-co.re) community, reused here under the [MIT license](https://github.com/nf-core/tools/blob/main/LICENSE).
+This pipeline reuses scaffolding from the [nf-core](https://nf-co.re) community framework under the [MIT license](https://github.com/nf-core/tools/blob/main/LICENSE):
 
 > **The nf-core framework for community-curated bioinformatics pipelines.**
 >
 > Philip Ewels, Alexander Peltzer, Sven Fillinger, Harshil Patel, Johannes Alneberg, Andreas Wilm, Maxime Ulysse Garcia, Paolo Di Tommaso & Sven Nahnsen.
 >
-> _Nat Biotechnol._ 2020 Feb 13. doi: [10.1038/s41587-020-0439-x](https://dx.doi.org/10.1038/s41587-020-0439-x).
+> *Nat Biotechnol.* 2020 Feb 13. doi: [10.1038/s41587-020-0439-x](https://dx.doi.org/10.1038/s41587-020-0439-x).

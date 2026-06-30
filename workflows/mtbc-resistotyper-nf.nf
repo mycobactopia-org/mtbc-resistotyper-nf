@@ -13,7 +13,7 @@ include { methodsDescriptionText } from '../subworkflows/local/utils_nfcore_mtbc
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-workflow MTBC-RESISTOTYPER-NF {
+workflow MTBC_RESISTOTYPER_NF {
 
     take:
     ch_samplesheet // channel: samplesheet read in from --input

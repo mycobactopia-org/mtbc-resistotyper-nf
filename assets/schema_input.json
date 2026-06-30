@@ -2,7 +2,7 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "https://raw.githubusercontent.com/mycobactopia-org/mtbc-resistotyper-nf/master/assets/schema_input.json",
     "title": "mycobactopia-org/mtbc-resistotyper-nf pipeline - params.input schema",
-    "description": "Schema for the file provided with params.input",
+    "description": "Samplesheet schema — per-sample VCF + tabix index. Compatible with XBS's snp_filtered / indel_filtered emit (after a small bcftools-concat adapter that combines the two per-sample VCFs). See docs/CONTRACT.md.",
     "type": "array",
     "items": {
         "type": "object",
@@ -11,23 +11,23 @@
                 "type": "string",
                 "pattern": "^\\S+$",
                 "errorMessage": "Sample name must be provided and cannot contain spaces",
-                "meta": ["id"]
+                "meta": ["id", "sample"]
             },
-            "fastq_1": {
+            "vcf": {
                 "type": "string",
                 "format": "file-path",
                 "exists": true,
-                "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.f(ast)?q\\.gz$",
-                "errorMessage": "FastQ file for reads 1 must be provided, cannot contain spaces and must have extension '.fq.gz' or '.fastq.gz'"
+                "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.vcf\\.gz$",
+                "errorMessage": "VCF file must exist, be bgzipped (.vcf.gz), and cannot contain spaces"
             },
-            "fastq_2": {
+            "tbi": {
                 "type": "string",
                 "format": "file-path",
                 "exists": true,
-                "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.f(ast)?q\\.gz$",
-                "errorMessage": "FastQ file for reads 2 cannot contain spaces and must have extension '.fq.gz' or '.fastq.gz'"
+                "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.vcf\\.gz\\.tbi$",
+                "errorMessage": "Tabix index file (.vcf.gz.tbi) must exist alongside the VCF"
             }
         },
-        "required": ["sample", "fastq_1"]
+        "required": ["sample", "vcf", "tbi"]
     }
 }

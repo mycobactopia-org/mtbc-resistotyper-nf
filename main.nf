@@ -13,7 +13,7 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-include { MTBC-RESISTOTYPER-NF  } from './workflows/mtbc-resistotyper-nf'
+include { MTBC_RESISTOTYPER_NF  } from './workflows/mtbc-resistotyper-nf'
 include { PIPELINE_INITIALISATION } from './subworkflows/local/utils_nfcore_mtbc-resistotyper-nf_pipeline'
 include { PIPELINE_COMPLETION     } from './subworkflows/local/utils_nfcore_mtbc-resistotyper-nf_pipeline'
 /*
@@ -25,7 +25,7 @@ include { PIPELINE_COMPLETION     } from './subworkflows/local/utils_nfcore_mtbc
 //
 // WORKFLOW: Run main analysis pipeline depending on type of input
 //
-workflow MYCOBACTOPIAORG_MTBC-RESISTOTYPER-NF {
+workflow MYCOBACTOPIAORG_MTBC_RESISTOTYPER_NF {
 
     take:
     samplesheet // channel: samplesheet read in from --input
@@ -35,7 +35,7 @@ workflow MYCOBACTOPIAORG_MTBC-RESISTOTYPER-NF {
     //
     // WORKFLOW: Run pipeline
     //
-    MTBC-RESISTOTYPER-NF (
+    MTBC_RESISTOTYPER_NF (
         samplesheet,
         params.outdir,
     )
@@ -67,7 +67,7 @@ workflow {
     //
     // WORKFLOW: Run main workflow
     //
-    MYCOBACTOPIAORG_MTBC-RESISTOTYPER-NF (
+    MYCOBACTOPIAORG_MTBC_RESISTOTYPER_NF (
         PIPELINE_INITIALISATION.out.samplesheet
     )
     //
