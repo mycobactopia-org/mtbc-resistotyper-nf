@@ -39,12 +39,30 @@ workflow BACKEND_TB_ML {
     def enabled = (params.tb_ml_models_enabled ?: 'tb_amr_cnn').tokenize(',').collect { name -> name.trim() }
     def registry = params.tb_ml_models ?: [:]
 
-    // Filter to known + valid models; warn (silently skip) on misspellings.
-    def models = enabled.findAll { name -> registry.containsKey(name) && registry[name].input_format != 'reads' }
+    // Filter to runnable models. A model is runnable when:
+    //   - it's in the registry
+    //   - input_format != 'reads' (the reads-input branch is handled separately)
+    //   - wrapper_status is unset (legacy entries — treated as wired) or 'wired'
+    //     ('planned' / 'wrapper_needed' / 'wired-reads-input' are documentation-
+    //     only or use a different code path — see docs/MODEL_CANDIDATES.md)
+    def models = enabled.findAll { name ->
+        if (!registry.containsKey(name)) return false
+        def entry = registry[name]
+        if (entry.input_format == 'reads') return false
+        def status = entry.wrapper_status ?: 'wired'
+        return status == 'wired'
+    }
     if (models.isEmpty()) {
-        error("BACKEND_TB_ML: no enabled models found in registry. " +
-              "Check params.tb_ml_models_enabled and conf/tb_ml_models.config. " +
-              "Note: 'reads'-input models (e.g. mykrobe_tb_ml) are wired in a separate code path.")
+        // Diagnose precisely why each enabled entry was filtered.
+        def diagnostics = enabled.collect { name ->
+            if (!registry.containsKey(name))              return "  ${name}: not in registry"
+            def e = registry[name]
+            def s = e.wrapper_status ?: 'wired'
+            if (e.input_format == 'reads')                return "  ${name}: input_format='reads' (handled in a separate branch)"
+            if (s != 'wired')                             return "  ${name}: wrapper_status='${s}' (documentation-only — see docs/MODEL_CANDIDATES.md)"
+            return "  ${name}: OK (?)"
+        }.join('\n')
+        error("BACKEND_TB_ML: no runnable models from params.tb_ml_models_enabled='${enabled.join(',')}':\n${diagnostics}\n\nSee conf/tb_ml_models.config and docs/MODEL_CANDIDATES.md.")
     }
 
     // ---- build per-(sample, model) channel ----
