@@ -50,7 +50,7 @@ XBS is pinned by commit; future releases will swap to a `--upstream xbs|magma|mt
 | `mtbc-cluster-nf` | SNP-distance clustering | future |
 | `mtbc-transmission-nf` | transmission inference | future |
 
-The family vision: `abc-universe/brainstorms/mtbc-building-blocks/2026-06-30-mtbc-nf-building-block-family.md`.
+The family vision: `abc-universe/brainstorms/mtbc-building-blocks/2026-06-30-mtbc-nf-building-block-family.md`. Architectural lineage vs **nf-core/funcscan / bacannot / TB-Profiler** is catalogued in [`docs/RELATED_WORK.md`](docs/RELATED_WORK.md) — including the **hAMRonization / ARO** canonical-output adoption planned for Phase 1.1.
 
 ## Usage
 
